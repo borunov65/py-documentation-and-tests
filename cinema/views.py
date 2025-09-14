@@ -128,17 +128,22 @@ class MovieViewSet(
             OpenApiParameter(
                 name="title",
                 type=OpenApiTypes.STR,
-                description="Filter by title"
+                description="Filter by title",
+                location=OpenApiParameter.QUERY,
             ),
             OpenApiParameter(
                 name="genres",
                 type={"type": "array", "items": {"type": "number"}},
-                description="Filter by genres id (ex. ?genres=2,3)",
+                description="Filter by genre IDs. "
+                            "Comma-separated list, e.g. ?genres=2,3",
+                location=OpenApiParameter.QUERY,
             ),
             OpenApiParameter(
                 name="actors",
                 type={"type": "array", "items": {"type": "number"}},
-                description="Filter by actors id (ex. ?actors=2,3)",
+                description="Filter by actor IDs. "
+                            "Comma-separated list, e.g. ?actors=5,7",
+                location=OpenApiParameter.QUERY,
             ),
         ]
     )
@@ -190,12 +195,14 @@ class MovieSessionViewSet(viewsets.ModelViewSet):
             OpenApiParameter(
                 name="date",
                 type=OpenApiTypes.DATE,
-                description="Filter by date (format: YYYY-MM-DD)"
+                description="Filter by date (format: YYYY-MM-DD)",
+                location=OpenApiParameter.QUERY,
             ),
             OpenApiParameter(
                 name="movie",
                 type=OpenApiTypes.INT,
-                description="Filter by movie id"
+                description="Filter by movie id",
+                location=OpenApiParameter.QUERY,
             ),
         ]
     )

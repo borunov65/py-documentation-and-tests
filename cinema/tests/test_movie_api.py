@@ -6,7 +6,7 @@ from django.contrib.auth import get_user_model
 from django.test import TestCase
 from django.urls import reverse
 
-from rest_framework.test import APIClient
+from rest_framework.test import APIClient, APITestCase
 from rest_framework import status
 
 from cinema.models import Movie, MovieSession, CinemaHall, Genre, Actor
@@ -14,7 +14,6 @@ from cinema.serializers import MovieListSerializer, MovieDetailSerializer
 
 MOVIE_URL = reverse("cinema:movie-list")
 MOVIE_SESSION_URL = reverse("cinema:moviesession-list")
-
 
 def sample_movie(**params):
     defaults = {
@@ -198,6 +197,19 @@ class AuthenticatedMovieApiTests(TestCase):
             serializer.data
         )
 
+    def test_filter_movies_by_title(self):
+        movie_without_titles = sample_movie()
+        movie_with_title = sample_movie(title="Titanic")
+
+        res = self.client.get(MOVIE_URL, {"title": "Titanic"})
+
+        data = res.data
+        if isinstance(res.data, dict) and "results" in res.data:
+            data = res.data["results"]
+
+        self.assertIn(MovieListSerializer(movie_with_title).data, data)
+        self.assertNotIn(MovieListSerializer(movie_without_titles).data, data)
+
     def test_filter_movies_by_genres(self):
         movie_without_genres = sample_movie()
         movie_with_genre_1 = sample_movie(title="Titanic")
@@ -229,6 +241,31 @@ class AuthenticatedMovieApiTests(TestCase):
             serializer_without_genres.data,
             res.data if isinstance(res.data, list) else res.data["results"]
         )
+
+    def test_filter_movies_by_actors(self):
+        movie_without_actors = sample_movie()
+        movie_with_actor_1 = sample_movie()
+        movie_with_actor_2 = sample_movie()
+
+        actor_1 = Actor.objects.create(first_name="Leonardo", last_name="DiCaprio")
+        actor_2 = Actor.objects.create(first_name="Tom", last_name="Cruz")
+
+        movie_with_actor_1.actors.add(actor_1)
+        movie_with_actor_2.actors.add(actor_2)
+
+        res = self.client.get(
+            MOVIE_URL, {"actors": f"{actor_1.id},{actor_2.id}"}
+        )
+
+        serializer_without_actors = MovieListSerializer(movie_without_actors)
+        serializer_movie_actor_1 = MovieListSerializer(movie_with_actor_1)
+        serializer_movie_actor_2 = MovieListSerializer(movie_with_actor_2)
+
+        data = res.data if isinstance(res.data, list) else res.data["results"]
+
+        self.assertIn(serializer_movie_actor_1.data, data)
+        self.assertIn(serializer_movie_actor_2.data, data)
+        self.assertNotIn(serializer_without_actors.data, data)
 
     def test_retrieve_movie_detail(self):
         movie = sample_movie()
