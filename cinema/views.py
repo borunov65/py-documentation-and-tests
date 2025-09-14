@@ -1,7 +1,7 @@
 from datetime import datetime
 
 from django.db.models import F, Count
-from rest_framework import viewsets, mixins, status
+from rest_framework import viewsets, mixins, status, serializers
 from rest_framework.decorators import action
 from rest_framework.pagination import PageNumberPagination
 from rest_framework.permissions import IsAuthenticated, IsAdminUser
@@ -68,10 +68,16 @@ class MovieViewSet(
     serializer_class = MovieSerializer
     permission_classes = (IsAdminOrIfAuthenticatedReadOnly,)
 
-    @staticmethod
-    def _params_to_ints(qs):
-        """Converts a list of string IDs to a list of integers"""
-        return [int(str_id) for str_id in qs.split(",")]
+    def _params_to_ints(self, qs):
+        """Convert a list of CSV ids to integers"""
+        if not qs:
+            return []
+        try:
+            return [int(str_id) for str_id in qs.split(",")]
+        except ValueError:
+            raise serializers.ValidationError(
+                {"detail": "IDs must be integers, e.g. ?genres=1,2,3"}
+            )
 
     def get_queryset(self):
         """Retrieve the movies with filters"""
@@ -167,17 +173,28 @@ class MovieSessionViewSet(viewsets.ModelViewSet):
     permission_classes = (IsAdminOrIfAuthenticatedReadOnly,)
 
     def get_queryset(self):
-        date = self.request.query_params.get("date")
-        movie_id_str = self.request.query_params.get("movie")
-
         queryset = self.queryset
 
-        if date:
-            date = datetime.strptime(date, "%Y-%m-%d").date()
+        date_str = self.request.query_params.get("date")
+        movie_id = self.request.query_params.get("movie")
+
+        if date_str:
+            try:
+                date = datetime.strptime(date_str, "%Y-%m-%d").date()
+            except ValueError:
+                raise serializers.ValidationError(
+                    {"date": "Invalid date format. Use YYYY-MM-DD."}
+                )
             queryset = queryset.filter(show_time__date=date)
 
-        if movie_id_str:
-            queryset = queryset.filter(movie_id=int(movie_id_str))
+        if movie_id:
+            try:
+                movie_id = int(movie_id)
+            except ValueError:
+                raise serializers.ValidationError(
+                    {"movie": "Movie ID must be an integer."}
+                )
+            queryset = queryset.filter(movie__id=movie_id)
 
         return queryset
 

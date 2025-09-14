@@ -287,6 +287,21 @@ class AuthenticatedMovieApiTests(TestCase):
 
         self.assertEqual(res.status_code, status.HTTP_403_FORBIDDEN)
 
+    def test_filter_movies_invalid_genres(self):
+        res = self.client.get(MOVIE_URL, {"genres": "abc"})
+        self.assertEqual(res.status_code, status.HTTP_400_BAD_REQUEST)
+
+    def test_filter_movies_invalid_actors(self):
+        res = self.client.get(MOVIE_URL, {"actors": "1,xyz"})
+        self.assertEqual(res.status_code, status.HTTP_400_BAD_REQUEST)
+
+    def test_filter_sessions_invalid_date(self):
+        res = self.client.get(reverse("cinema:moviesession-list"), {"date": "2025-99-99"})
+        self.assertEqual(res.status_code, status.HTTP_400_BAD_REQUEST)
+
+    def test_filter_sessions_invalid_movie_id(self):
+        res = self.client.get(reverse("cinema:moviesession-list"), {"movie": "abc"})
+
 
 class AdminMovieTest(TestCase):
     def setUp(self):
@@ -349,4 +364,36 @@ class AdminMovieTest(TestCase):
         movie = sample_movie()
         url = detail_url(movie.id)
         res = self.client.delete(url)
+        self.assertEqual(res.status_code, status.HTTP_405_METHOD_NOT_ALLOWED)
+
+
+class MovieRestrictedMethodsTests(TestCase):
+    def setUp(self):
+        self.client = APIClient()
+        self.admin_user = get_user_model().objects.create_user(
+            email="admin@test.com",
+            password="test123",
+            is_staff=True
+        )
+        self.client.force_authenticate(self.admin_user)
+
+        self.movie = Movie.objects.create(
+            title="Titanic",
+            description="Ship tragedy",
+            duration=120
+        )
+
+    def test_delete_not_allowed(self):
+        url = detail_url(self.movie.id)
+        res = self.client.delete(url)
+        self.assertEqual(res.status_code, status.HTTP_405_METHOD_NOT_ALLOWED)
+
+    def test_update_not_allowed(self):
+        url = detail_url(self.movie.id)
+        res = self.client.put(url, {"title": "New Title"})
+        self.assertEqual(res.status_code, status.HTTP_405_METHOD_NOT_ALLOWED)
+
+    def test_partial_update_not_allowed(self):
+        url = detail_url(self.movie.id)
+        res = self.client.patch(url, {"title": "Partial"})
         self.assertEqual(res.status_code, status.HTTP_405_METHOD_NOT_ALLOWED)
